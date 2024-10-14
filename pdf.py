@@ -9,7 +9,7 @@ class PdfDownloaderSpider(scrapy.Spider):
     custom_settings = {
         "FEED_EXPORT_ENCODING": "utf-8",
         "LOG_LEVEL": "INFO",
-        "CONCURRENT_REQUESTS": 64,
+        "CONCURRENT_REQUESTS": 100,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 1000,
         "REDIRECT_ENABLED": False,
         "COOKIES_ENABLED": False,

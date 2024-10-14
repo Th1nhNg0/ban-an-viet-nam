@@ -9,18 +9,12 @@ class CongbobananSpider(scrapy.Spider):
         "FEED_EXPORT_ENCODING": "utf-8",
         "FEED_FORMAT": "jsonlines",
         "FEED_URI": "output/banan.jsonl",
-        # "LOG_FILE": "scrapy_log.txt",
         "LOG_LEVEL": "INFO",
-        "JOBDIR": "job_data",
-        # Maximize concurrent requests
+        "JOBDIR": "output/job_data",
         "CONCURRENT_REQUESTS": 64,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 1000,
-        # "RETRY_ENABLED": False,
-        # "RETRY_TIMES": 3,
-        # disable redirect, cookies
         "REDIRECT_ENABLED": False,
         "COOKIES_ENABLED": False,
-        # Disable robots.txt
         "ROBOTSTXT_OBEY": False,
     }
 
@@ -31,7 +25,7 @@ class CongbobananSpider(scrapy.Spider):
             os.makedirs(self.pdf_folder)
 
     start_urls = [
-        f"https://congbobanan.toaan.gov.vn/2ta{i}t1cvn/" for i in range(1, 1662291)
+        f"https://congbobanan.toaan.gov.vn/2ta{i}t1cvn/" for i in range(1, 1700000)
     ]
 
     def parse(self, response):
@@ -51,9 +45,12 @@ class CongbobananSpider(scrapy.Spider):
                 metadata[label.strip()] = value.strip()
 
         record_id = response.url.split("/")[-2]
+
+        date = response.css("#\\31 b > div.title_detai_tab_pub > span::text").get()
         yield {
             "id": record_id,
             "url": response.url,
+            "date": date,
             **metadata,
         }
         # pdf_url = response.url.replace("2ta", "5ta")
