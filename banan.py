@@ -22,10 +22,6 @@ class CongbobananSpider(scrapy.Spider):
         "CONCURRENT_REQUESTS": 256,
         "CONCURRENT_REQUESTS_PER_DOMAIN": 1000,
         "COOKIES_ENABLED": False,
-        "DOWNLOAD_DELAY": 0.5,
-        "DOWNLOADER_MIDDLEWARES": {
-            "scrapy.downloadermiddlewares.retry.RetryMiddleware": None,
-        },
     }
 
     def __init__(self, *args, **kwargs):
