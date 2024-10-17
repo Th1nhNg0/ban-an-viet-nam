@@ -1,34 +1,34 @@
 import csv
-import requests
 import os
-from concurrent.futures import ThreadPoolExecutor
+import aiohttp
+import asyncio
 import urllib3
-from tqdm import tqdm  # Import tqdm for progress bar
+from aiohttp import ClientSession
+from tqdm import tqdm  # Import the correct tqdm for progress bar
 
 urllib3.disable_warnings()
 
 
-# Function to download a PDF file
-def download_pdf(url, filename):
+# Function to download a PDF file asynchronously
+async def download_pdf(session, url, filename):
     try:
         # Check if file already exists
         if os.path.exists(filename):
             return  # Skip download if file already exists
 
-        # Disable SSL certificate verification
-        response = requests.get(url, stream=True, verify=False)
-        if response.status_code == 200:
-            # Create the output directory if it doesn't exist
-            output_dir = os.path.dirname(filename)
-            if not os.path.exists(output_dir):
-                os.makedirs(output_dir)
+        # Create the output directory if it doesn't exist
+        output_dir = os.path.dirname(filename)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
 
-            # Save the PDF to the output directory
-            with open(filename, "wb") as f:
-                f.write(response.content)
-        # No print statements for silent operation
+        # Asynchronous download
+        async with session.get(url, ssl=False) as response:
+            if response.status == 200:
+                # Save the PDF to the output directory
+                with open(filename, "wb") as f:
+                    f.write(await response.read())
     except Exception as e:
-        # You can optionally log errors here if needed
+        # Optionally log the error here
         pass
 
 
@@ -46,20 +46,21 @@ def read_csv(file_path):
     return urls_and_filenames
 
 
-# Function to download PDFs in parallel with progress bar
-def download_pdfs_in_parallel(csv_file_path):
+# Function to download PDFs in parallel with asyncio
+async def download_pdfs_in_parallel(csv_file_path):
     urls_and_filenames = read_csv(csv_file_path)
 
-    # tqdm progress bar wrapper
-    with ThreadPoolExecutor(max_workers=64) as executor:
-        list(
-            tqdm(
-                executor.map(lambda x: download_pdf(x[0], x[1]), urls_and_filenames),
-                total=len(urls_and_filenames),
-            )
-        )
+    async with ClientSession() as session:
+        tasks = [
+            download_pdf(session, url, filename) for url, filename in urls_and_filenames
+        ]
+
+        # Use tqdm with asyncio.as_completed() for progress tracking
+        for task in tqdm(asyncio.as_completed(tasks), total=len(tasks)):
+            await task
 
 
 # Example usage:
-csv_file_path = "hinhsu_urls.csv"
-download_pdfs_in_parallel(csv_file_path)
+if __name__ == "__main__":
+    csv_file_path = "hinhsu_urls.csv"
+    asyncio.run(download_pdfs_in_parallel(csv_file_path))
