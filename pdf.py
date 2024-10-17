@@ -1,70 +1,65 @@
-import scrapy
-from scrapy.http import Request
+import csv
+import requests
 import os
-import json
+from concurrent.futures import ThreadPoolExecutor
+import urllib3
+from tqdm import tqdm  # Import tqdm for progress bar
+
+urllib3.disable_warnings()
 
 
-class PdfDownloaderSpider(scrapy.Spider):
-    name = "pdf_downloader"
-    custom_settings = {
-        "LOG_LEVEL": "INFO",
-        "CONCURRENT_REQUESTS": 100,
-        "CONCURRENT_REQUESTS_PER_DOMAIN": 50,
-        "COOKIES_ENABLED": False,
-    }
+# Function to download a PDF file
+def download_pdf(url, filename):
+    try:
+        # Check if file already exists
+        if os.path.exists(filename):
+            return  # Skip download if file already exists
 
-    def __init__(
-        self,
-        pdf_folder="output/pdf_files",
-        input_file="output/banan.jsonl",
-        *args,
-        **kwargs,
-    ):
-        super().__init__(*args, **kwargs)
-        self.pdf_folder = pdf_folder
-        self.input_file = input_file
-        os.makedirs(self.pdf_folder, exist_ok=True)
+        # Disable SSL certificate verification
+        response = requests.get(url, stream=True, verify=False)
+        if response.status_code == 200:
+            # Create the output directory if it doesn't exist
+            output_dir = os.path.dirname(filename)
+            if not os.path.exists(output_dir):
+                os.makedirs(output_dir)
 
-    def start_requests(self):
-        if not os.path.isfile(self.input_file):
-            self.logger.error(f"Input file {self.input_file} does not exist.")
-            return
+            # Save the PDF to the output directory
+            with open(filename, "wb") as f:
+                f.write(response.content)
+        # No print statements for silent operation
+    except Exception as e:
+        # You can optionally log errors here if needed
+        pass
 
-        with open(self.input_file, "r", encoding="utf-8") as f:
-            for line_number, line in enumerate(f, start=1):
-                try:
-                    record = json.loads(line)
-                    record_id = record.get("id")
-                    pdf_url = record.get("url")
 
-                    if record_id and pdf_url:
-                        modified_pdf_url = pdf_url.replace("2ta", "5ta")
-                        yield Request(
-                            url=modified_pdf_url,
-                            callback=self.download_pdf,
-                            meta={"record_id": record_id},
-                            priority=10,
-                            dont_filter=True,
-                        )
-                    else:
-                        self.logger.warning(
-                            f"Missing 'id' or 'url' in record on line {line_number}."
-                        )
-                except json.JSONDecodeError as e:
-                    self.logger.error(f"Error decoding JSON on line {line_number}: {e}")
+# Function to read URLs and filenames from the CSV file
+def read_csv(file_path):
+    urls_and_filenames = []
+    with open(file_path, newline="") as csvfile:
+        reader = csv.reader(csvfile)
+        for row in reader:
+            url = row[0]
+            filename = os.path.join(
+                "output/pdf", row[1]
+            )  # Save PDFs to output/pdf directory
+            urls_and_filenames.append((url, filename))
+    return urls_and_filenames
 
-    def download_pdf(self, response):
-        record_id = response.meta.get("record_id")
-        if not record_id:
-            self.logger.error("Missing record ID in response meta.")
-            return
 
-        pdf_path = os.path.join(self.pdf_folder, f"{record_id}.pdf")
-        try:
-            with open(pdf_path, "wb") as f:
-                f.write(response.body)
-            self.logger.info(
-                f"Successfully downloaded PDF for record ID {record_id} to {pdf_path}"
+# Function to download PDFs in parallel with progress bar
+def download_pdfs_in_parallel(csv_file_path):
+    urls_and_filenames = read_csv(csv_file_path)
+
+    # tqdm progress bar wrapper
+    with ThreadPoolExecutor(max_workers=64) as executor:
+        list(
+            tqdm(
+                executor.map(lambda x: download_pdf(x[0], x[1]), urls_and_filenames),
+                total=len(urls_and_filenames),
             )
-        except OSError as e:
-            self.logger.error(f"Failed to save PDF for record ID {record_id}: {e}")
+        )
+
+
+# Example usage:
+csv_file_path = "hinhsu_urls.csv"
+download_pdfs_in_parallel(csv_file_path)

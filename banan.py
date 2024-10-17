@@ -49,6 +49,7 @@ class CongbobananSpider(scrapy.Spider):
         record_id = response.url.split("/")[-2]
 
         date = response.css("#\\31 b > div.title_detai_tab_pub > span::text").get()
+
         yield {
             "id": record_id,
             "url": response.url,
