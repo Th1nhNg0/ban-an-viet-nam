@@ -24,8 +24,11 @@ class CsvFileDownloadSpider(scrapy.Spider):
         "FEED_FORMAT": "jsonlines",
         "FEED_URI": "output/pdf_files.jsonl",
     }
+    start_urls = [
+        "https://www.example.com",
+    ]
 
-    def start_requests(self):
+    def parse(self, response):
         # Check if the CSV file exists
         if not os.path.exists(self.CSV_FILE):
             self.logger.error(
@@ -43,14 +46,9 @@ class CsvFileDownloadSpider(scrapy.Spider):
 
                 file_url, filename = row
                 filename = filename.strip()
-                yield scrapy.Request(
-                    url=file_url, callback=self.save_file, meta={"filename": filename}
-                )
 
-    def save_file(self, response):
-        filename = response.meta.get("filename")
-        if filename:
-            yield {
-                "file_name": filename,
-                "file_urls": [response.url],
-            }
+                if filename:
+                    yield {
+                        "file_name": filename,
+                        "file_urls": [file_url],
+                    }
